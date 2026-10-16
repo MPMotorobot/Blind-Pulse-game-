@@ -133,7 +133,7 @@ A playable browser-based game featuring its core movement mechanics, enemy behav
 *Blind Pulse — Find the light. Respect the silence. Survive the Abyss.*
 ---
 
-## 👤 Автор
+## 👤 Author
 
 **Yevhenii Yelisieiev / YuJenix**
 - GitHub: [@mpmotorobot](https://github.com/mpmotorobot)
