@@ -1,4 +1,4 @@
-<img width="948" height="1192" alt="image" src="https://github.com/user-attachments/assets/445e3288-b5be-42f4-982c-b0072867e161" /># 🕯️ Blind Pulse — A Light in the Darkness
+# 🕯️ Blind Pulse — A Light in the Darkness
 
 An atmospheric 2D survival game with stealth elements, where the player controls a small spark of light in a world consumed by darkness.
 
@@ -138,6 +138,6 @@ A playable browser-based game featuring its core movement mechanics, enemy behav
 **Yevhenii Yelisieiev / YuJenix**
 - GitHub: [@mpmotorobot](https://github.com/mpmotorobot)
 * **Telegram:** [@YuJenix](https://t.me/YuJenix)
-* **Портфолио:** [mpmotorobot.github.io](https://mpmotorobot.github.io)
+* **Portfolio:** [mpmotorobot.github.io](https://mpmotorobot.github.io)
 
 © 2026 Blind Pulse. All rights reserved.
