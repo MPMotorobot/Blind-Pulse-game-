@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta content="game YuJenix">
+<title>Слепой пульс</title>
+<style>
+:root{--bg:#07080d;color-scheme:dark}
+html,body{height:100%;margin:0;background:var(--bg);overflow:hidden;touch-action:none;font-family:system-ui,sans-serif}
+canvas{display:block;width:100%;height:100%;cursor:none}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const cv=document.getElementById('c'),g=cv.getContext('2d');
+let W,H,D;
+function rs(){D=window.devicePixelRatio||1;W=innerWidth;H=innerHeight;cv.width=W*D;cv.height=H*D;g.setTransform(D,0,0,D,0,0);mkBg()}
+var bgc,fogt,fogc;function mkBg(){bgc=document.createElement('canvas');bgc.width=W;bgc.height=H;const b=bgc.getContext('2d');const gr=b.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.hypot(W,H)/2);gr.addColorStop(0,'#111524');gr.addColorStop(1,'#03040a');b.fillStyle=gr;b.fillRect(0,0,W,H);for(let i=0;i<W*H/90;i++){b.fillStyle='rgba('+(120+Math.random()*80|0)+',150,220,'+Math.random()*0.07+')';b.fillRect(Math.random()*W,Math.random()*H,1+Math.random()*1.5,1+Math.random()*1.5)}b.strokeStyle='rgba(150,170,230,0.07)';b.lineWidth=1;for(let i=0;i<16;i++){let x=Math.random()*W,y=Math.random()*H;b.beginPath();b.moveTo(x,y);for(let k=0;k<8;k++){x+=Math.random()*60-30;y+=Math.random()*60-10;b.lineTo(x,y)}b.stroke()}
+fogt=document.createElement('canvas');fogt.width=W;fogt.height=H;const q=fogt.getContext('2d');for(let i=0;i<40;i++){const x=Math.random()*W,y=Math.random()*H,r=80+Math.random()*160;for(const dx of [-W,0,W]){const f2=q.createRadialGradient(x+dx,y,0,x+dx,y,r);f2.addColorStop(0,'rgba(150,160,190,0.22)');f2.addColorStop(1,'rgba(150,160,190,0)');q.fillStyle=f2;q.fillRect(x+dx-r,y-r,r*2,r*2)}}
+fogc=document.createElement('canvas');fogc.width=W;fogc.height=H}
+addEventListener('resize',rs);rs();
+let best=0;try{best=+localStorage.getItem('bp_best')||0}catch(e){}
+let state='menu',score=0,px,py,tx,ty,m=0,mv=0,cap='',capT=0,fg=1,tot=0,ls=0,lamp=0,chT=0,dc=0,tm=0,ip=0,lv=0,GOAL=6,hp=3,mhp=3,sh=0,inv=0,bf=null,hz=[],orb=null,last=performance.now(),flash=0,t=0;
+function rnd(a,b){return a+Math.random()*(b-a)}
+// const LV=[{n:'Берег',g:6,h:2,hs:99,hm:0,sp:0,t:'rgba(60,110,200,0.08)',s:'Маяк на берегу погас. Собери первые осколки.',m:'Теней немного, но туман уже густеет.',e:'Берег залит слабым светом. Но маяк стоит дальше — в гавани.'},{n:'Туманная гавань',g:8,h:3,hs:3,hm:2,sp:0.15,t:'rgba(40,170,150,0.08)',s:'Гончие идут на шорох тумана. Замри — и они потеряют след.',m:'Корабли в гавани слышат твой звон.',e:'Гавань вспыхнула огнями. Впереди ущелье, где эхо лжёт.'},{n:'Ущелье эха',g:10,h:4,hs:2,hm:3,sp:0.3,t:'rgba(150,80,220,0.09)',s:'Здесь эхо повторяет твои шаги. Тени быстрее.',m:'Эхо шепчет: ещё чуть-чуть.',e:'Ущелье позади. Дальше только сама Бездна.'},{n:'Сердце Бездны',g:12,h:5,hs:1,hm:4,sp:0.45,t:'rgba(220,40,70,0.09)',s:'Последние осколки — самые глубокие.',m:'Тьма пытается погасить искру.',e:''}];
+const T=[['Берег','s',6,'Маяк на берегу погас. Собери первые осколки.'],['Туманная гавань','s',8,'Гончие идут на шорох тумана. Замри — и они потеряют след.'],['Ночное дежурство','d',25,'Продержись 25 секунд до рассвета.'],['Ущелье эха','s',10,'Здесь эхо повторяет твои шаги. Тени быстрее.'],['Тихая заводь','q',8,'Тишина лечит туман. Замри и накопи 8 секунд тишины, когда туман осядет совсем.'],['Маячные огни','l',3,'Зажги 3 огня: встань на осколок и замри, пока он не вспыхнет.'],['Шумный лес','e',10,'Расшевели туман: двигайся 10 секунд, чтобы разбудить спящий свет.'],['Полынья','s',12,'Лёд трещит. Осколки лежат глубже.'],['Долгая ночь','d',40,'Ночь длинна. Продержись 40 секунд.'],['Склеп кораблей','l',4,'Четыре огня в склепе затонувших кораблей.'],['Звенящие скалы','e',14,'Скалы звенят от движения. Двигайся 14 секунд.'],['Мёртвый штиль','q',12,'Штиль. Накопи 12 секунд тишины — Тени ждут.'],['Чёрный прилив','s',14,'Прилив тьмы. Собери 14 осколков.'],['Последний рассвет','d',60,'Последняя ночь. Дотяни до рассвета: 60 секунд.'],['Сердце Бездны','s',16,'Сердце Бездны. Последние осколки — самые глубокие.']];
+const UN={s:'осколки',d:'до рассвета',q:'тишина',l:'огни',e:'движение'};
+const END=['Берег залит слабым светом.','Гавань вспыхнула огнями.','Ещё одна ночь позади.','Эхо стихло. Свет держится.','Корабли видят дорогу.'];
+const IN=['Давным-давно на краю земли стоял Маяк Тишины. Его свет вёл корабли домой сквозь любую бурю.','Но однажды Бездна — древняя тьма под морем — выдохнула туман и погасила линзу. Осколки разлетелись по её владениям.','Хранитель маяка ушёл в темноту, но его последний вздох стал искрой. Это ты.','Туман — дыхание Бездны. Тени прячутся в нём, Гончие идут на шорох. Осколки же откликаются только на живой свет.','Двигайся — и увидишь осколки, но слепо пойдёшь в туман. Замри — и увидишь Тени, но тебя заметят тоже.','Собери линзу. Зажги маяк. Верни кораблям дорогу домой.'];
+const CH=['Первый осколок вернул берегу цвет. Но волны шепчут: линза рассыпана далеко, путь лежит через гавань.','В гавани вспыхнули фонари. Моряки слышат звон осколков, но ночь только начинается.','Рассвет прорвался на миг. Бездна злится — она не хочет терять своё царство.','Эхо ущелья стихло. Стало ясно: туман — не враг, а дыхание, и им можно управлять.','В тишине заводи осколки запели громче. Теперь слышно, где зажигать огни.','Три огня горят. По воде дрожит дорожка света, и далёкие корабли разворачиваются к берегу.','Лес ожил от твоего звона. Тени отступают, но Гончие уже взяли след.','Лёд треснул, и из глубины всплыли осколки. Линза почти наполовину собрана.','Долгая ночь позади. Горизонт светлеет, но это лишь короткая передышка.','Склеп затонувших кораблей засветился. Души команд благодарят тебя и указывают путь к Сердцу Бездны.','Скалы пели под твоим светом. Осталось немного, но Тени стали злее.','Мёртвый штиль сменился слабым ветром. Бездна задержала дыхание — она боится.','Чёрный прилив отхлынул. Впереди лишь последний рассвет.','Рассвет вспыхнул над водой. Дорога к Сердцу Бездны открыта.',''];
+const LV=T.map((a,i)=>({n:a[0],k:a[1],g:a[2],s:a[3],h:Math.min(2+(i>>1),9),hs:i<1?99:Math.max(1,4-(i/3|0)),hm:i<1?0:Math.min(1+(i>>1),6),sp:Math.min(i*0.05,0.8),t:`hsla(${(210+i*40)%360},60%,50%,0.08)`,m:'Ещё немного — свет уже слышен.',e:CH[i]}));
+const ST={6:'Гончие Бездны идут на шорох тумана. Замри — и они потеряют след.',1:'Ты — последняя искра маяка. Свет погас, и Бездна проснулась.',3:'Осколки линзы разбросаны по тьме. Каждый помнит один корабль.',2:'Осколки откликаются на живой свет: пока ты движешься, они звенят сквозь туман.',4:'Туман — дыхание Бездны. Замри, и он осядет, а Тени проступят.',5:'Тени прячутся в тумане, который ты взбиваешь. Когда ты замираешь, они выжидают.',8:'Ты слышишь далёкий гудок. Кто-то ещё ждёт света.',12:'Линза почти собрана. Тени стали голоднее.',16:'Осталось четыре осколка. Гончие почуяли свет.',22:'Рассвет близко. Не останавливайся… или останавливайся. Ты знаешь как.'};
+const DL=['Тьма сомкнулась над искрой.','Тень узнала тебя.','Свет дрогнул и погас.','Бездна терпелива.'];
+function spawnHazard(){
+  let x,y;do{x=rnd(30,W-30);y=rnd(60,H-30)}while(Math.hypot(x-px,y-py)<180);
+  const a=rnd(0,6.28),s=rnd(1.1,1.9)+Math.min(score,12)*0.03+LV[lv].sp;
+  hz.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:rnd(14,22),hd:score>=LV[lv].hs&&hz.filter(q=>q.hd).length<LV[lv].hm&&Math.random()<0.35});
+}
+function wrap(s,x,y,w,lh){const ws=s.split(' ');let l='';const out=[];for(const q of ws){const tt=l?l+' '+q:q;if(g.measureText(tt).width>w&&l){out.push(l);l=q}else l=tt}out.push(l);y-=(out.length-1)*lh/2;for(const o of out){g.fillText(o,x,y);y+=lh}}
+function RK(){return dc===0?'Хранитель Света':dc<=4?'Страж маяка':dc<=12?'Искра, что не угасла':'Упрямый огонёк'}
+function fmt(s){return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0')}
+function kind(sp,dt){const k=LV[lv].k;if(k==='s')return;const s=dt/60;if(k==='d')score+=s;else if(k==='q'){if(sp<=1.2&&fg<0.05)score+=s}else if(k==='e'){if(sp>1.2)score+=s}else if(k==='l'&&orb){const nr=Math.hypot(orb.x-px,orb.y-py)<30&&sp<=1.2;lamp=nr?lamp+dt:0;if(lamp>=75){lamp=0;score++;spawnOrb();if(hz.length<16)spawnHazard();if(!bf&&Math.random()<0.5)spawnBuff();cap='Огонь вспыхнул!';capT=150}}if(k!=='l'){const b=Math.floor(score/10);if(b>ls){ls=b;if(hz.length<16)spawnHazard();if(!bf&&Math.random()<0.5)spawnBuff()}}if(score>=GOAL)done()}
+function done(){if(lv>=LV.length-1){win();return}state='lvl';overAt=performance.now();flash=0;cap=LV[lv].e}
+function win(){state='win';overAt=performance.now();flash=0;best=LV.length;try{localStorage.setItem('bp_best',best)}catch(e){}cap='Линза собрана, маяк вспыхнул, и Бездна отступила. '+(dc===0?'Ни разу не погаснув, искра стала легендой. Моряки зовут её Хранителем Света.':dc<=4?'Искра гасла и возгоралась вновь. Каждый корабль помнит её свет.':'Сколько раз она падала — не счесть. Но маяк горит, и это главное.')+' Корабли вернулись домой.'}
+function spawnBuff(){let k=['shield','life','heal'][Math.random()*3|0];if(k==='heal'&&hp>=mhp)k='shield';if(k==='life'&&mhp>=5)k='shield';let x,y;do{x=rnd(40,W-40);y=rnd(80,H-40)}while(Math.hypot(x-px,y-py)<140);bf={k,x,y,life:900}}
+function grab(){if(bf.k==='shield'){sh=480;cap='Щит света: ближайшая Тень не причинит вреда.'}else if(bf.k==='life'){mhp++;hp++;cap='Новое сердце маяка!'}else{hp=mhp;cap='Свет залечил все раны.'}capT=240;bf=null}
+function heart(x,y,f){g.save();g.translate(x,y);g.beginPath();g.moveTo(0,5);g.bezierCurveTo(-14,-4,-6,-14,0,-6);g.bezierCurveTo(6,-14,14,-4,0,5);g.closePath();if(f){g.fillStyle='#ff4d6d';g.fill()}g.strokeStyle='rgba(255,120,140,0.9)';g.lineWidth=1.5;g.stroke();g.restore()}
+function spawnOrb(){
+  let x,y;do{x=rnd(40,W-40);y=rnd(80,H-40)}while(Math.hypot(x-px,y-py)<140);
+  orb={x,y};
+}
+function start(){
+  if(state==='lvl'){lv++;hp=Math.min(mhp,hp+1)}else if(state==='over'){hp=mhp}else{lv=0;tot=0;dc=0;tm=0;hp=mhp=3}GOAL=LV[lv].g;cap=LV[lv].n+' — '+LV[lv].s;capT=420;score=0;ls=0;lamp=0;chT=170;hz=[];px=tx=W/2;py=ty=H/2;m=0;mv=0;fg=1;sh=0;inv=0;bf=null;flash=0;
+  for(let i=0;i<LV[lv].h;i++)spawnHazard();
+  spawnOrb();if(!'sl'.includes(LV[lv].k))orb=null;state='play';
+}
+function over(){
+  state='over';flash=1;dc++;cap=DL[Math.random()*DL.length|0];
+  if(lv+1>best){best=lv+1;try{localStorage.setItem('bp_best',best)}catch(e){}}
+}
+function pt(e){tx=e.clientX;ty=e.clientY}
+cv.addEventListener('pointermove',pt);
+cv.addEventListener('pointerdown',e=>{pt(e);if(state!=='play'){if(state==='menu'){state='intro';ip=0;overAt=performance.now()}else if(state==='intro'){if(performance.now()-overAt>350){ip++;overAt=performance.now();if(ip>=IN.length){state='menu';start()}}}else if(performance.now()-overAt>600){start()}}});
+let overAt=0;
+function step(now){
+  const dt=Math.min(2,(now-last)/16.67);last=now;t+=dt;
+  g.drawImage(bgc,0,0,W,H);g.fillStyle=LV[lv].t;g.fillRect(0,0,W,H);
+  // subtle grid
+  g.strokeStyle='rgba(120,140,200,0.02)';g.lineWidth=1;
+  for(let x=0;x<W;x+=48){g.beginPath();g.moveTo(x,0);g.lineTo(x,H);g.stroke()}
+  for(let y=0;y<H;y+=48){g.beginPath();g.moveTo(0,y);g.lineTo(W,y);g.stroke()}
+  if(state==='play'){
+    const ox=px,oy=py;
+    px+=(tx-px)*Math.min(1,0.22*dt);py+=(ty-py)*Math.min(1,0.22*dt);
+    const sp=Math.hypot(px-ox,py-oy)/dt;
+    inv-=dt;sh-=dt;tm+=dt/60;kind(sp,dt);if(bf){bf.life-=dt;if(bf.life<=0)bf=null}if(sp>1.2){m=0;mv=Math.min(1,mv+dt/150);fg=Math.min(1,fg+dt/40)}else{mv=0;m=Math.min(1,m+dt/150);fg=Math.max(0,fg-dt/150)}
+    for(const h of hz){
+      if(h.hd&&m===0){const an=Math.atan2(py-h.y,px-h.x),s=1.6+Math.min(score,12)*0.02;h.vx+=(Math.cos(an)*s-h.vx)*0.03*dt;h.vy+=(Math.sin(an)*s-h.vy)*0.03*dt}
+      h.x+=h.vx*dt;h.y+=h.vy*dt;
+      if(h.x<h.r||h.x>W-h.r)h.vx*=-1;
+      if(h.y<h.r||h.y>H-h.r)h.vy*=-1;
+      h.x=Math.max(h.r,Math.min(W-h.r,h.x));h.y=Math.max(h.r,Math.min(H-h.r,h.y));
+      if(state==='play'&&inv<=0&&Math.hypot(h.x-px,h.y-py)<h.r+7){const an=Math.atan2(h.y-py,h.x-px),s2=Math.hypot(h.vx,h.vy);h.vx=Math.cos(an)*s2;h.vy=Math.sin(an)*s2;if(sh>0){sh=0;inv=60;cap='Щит раскололся, но спас тебя.';capT=200}else{hp--;inv=90;flash=1;cap='Тень задела искру…';capT=200;if(hp<=0){over();overAt=performance.now();break}}}
+    }
+    if(state==='play'&&bf&&Math.hypot(bf.x-px,bf.y-py)<26)grab();
+    if(state==='play'&&orb&&LV[lv].k==='s'&&Math.hypot(orb.x-px,orb.y-py)<24){
+      score++;tot++;spawnOrb();if(score===(GOAL>>1)){cap=LV[lv].m;capT=360}if(!bf&&Math.random()<0.4)spawnBuff();if(score>=GOAL)done();
+      if(score%2===0&&hz.length<16)spawnHazard();
+    }
+  }
+  const still=m;
+  // hazards: visible only when still
+  if(state!=='menu'){
+    for(const h of hz){
+      const dd=Math.hypot(h.x-px,h.y-py),a=state==='over'?1:Math.max(Math.max(0,1-fg*1.15),Math.max(0,1-dd/150)*0.5);
+      const gr=g.createRadialGradient(h.x,h.y,0,h.x,h.y,h.r*2.2);
+      gr.addColorStop(0,`rgba(255,70,90,${a})`);gr.addColorStop(0.45,`rgba(255,70,90,${a*0.6})`);gr.addColorStop(1,'rgba(255,70,90,0)');
+      g.fillStyle=gr;g.beginPath();g.arc(h.x,h.y,h.r*2.2,0,6.28);g.fill();
+      for(let k=0;k<7;k++){const an=k*0.898+t*0.02*(k%2?1:-1),ln=h.r*(0.9+0.3*Math.sin(t*0.07+k*2));g.strokeStyle=`rgba(120,10,30,${a})`;g.lineWidth=3;g.beginPath();g.moveTo(h.x,h.y);g.quadraticCurveTo(h.x+Math.cos(an+1)*ln*0.6,h.y+Math.sin(an+1)*ln*0.6,h.x+Math.cos(an)*ln*1.3,h.y+Math.sin(an)*ln*1.3);g.stroke()}
+      g.fillStyle=`rgba(40,0,12,${a})`;g.beginPath();g.arc(h.x,h.y,h.r*0.8,0,6.28);g.fill();
+      g.fillStyle=`rgba(255,210,215,${a})`;g.beginPath();g.ellipse(h.x,h.y,h.r*0.45,h.r*0.25,0,0,6.28);g.fill();
+      g.fillStyle=`rgba(20,0,5,${a})`;g.beginPath();g.arc(h.x+Math.max(-4,Math.min(4,(px-h.x)*0.05)),h.y,h.r*0.13,0,6.28);g.fill();if(h.hd){g.strokeStyle=`rgba(190,110,255,${a})`;g.lineWidth=2;g.beginPath();g.arc(h.x,h.y,h.r*1.5+Math.sin(t*0.1)*2,0,6.28);g.stroke()}
+    }
+    if(state==='win'||state==='lvl')fg=Math.max(0,fg-dt/50);else if(state!=='play')fg=Math.min(1,fg+dt/60);
+    {const fc=fogc.getContext('2d');fc.globalCompositeOperation='source-over';fc.clearRect(0,0,W,H);const ox=(t*0.25)%W,oy=Math.sin(t*0.004)*20;fc.drawImage(fogt,ox,oy);fc.drawImage(fogt,ox-W,oy);fc.fillStyle='rgba(3,4,9,0.6)';fc.fillRect(0,0,W,H);
+    if(state==='play'){fc.globalCompositeOperation='destination-out';const r=70+(1-fg)*40,hg=fc.createRadialGradient(px,py,0,px,py,r*1.8);hg.addColorStop(0,'rgba(0,0,0,0.95)');hg.addColorStop(0.5,'rgba(0,0,0,0.5)');hg.addColorStop(1,'rgba(0,0,0,0)');fc.fillStyle=hg;fc.fillRect(0,0,W,H)}
+    g.globalAlpha=fg;g.drawImage(fogc,0,0);g.globalAlpha=1}
+    if(bf&&state==='play'){const a=mv*Math.min(1,bf.life/90),c=bf.k==='shield'?'110,190,255':bf.k==='life'?'255,90,130':'255,220,110',pl=1+Math.sin(t*0.12)*0.12;const gr=g.createRadialGradient(bf.x,bf.y,0,bf.x,bf.y,30*pl);gr.addColorStop(0,`rgba(${c},${a})`);gr.addColorStop(1,`rgba(${c},0)`);g.fillStyle=gr;g.beginPath();g.arc(bf.x,bf.y,30*pl,0,6.28);g.fill();g.fillStyle=`rgba(${c},${a})`;g.strokeStyle=`rgba(255,255,255,${a})`;g.lineWidth=1.5;if(bf.k==='life'){g.save();g.translate(bf.x,bf.y);g.scale(1.1,1.1);g.beginPath();g.moveTo(0,5);g.bezierCurveTo(-14,-4,-6,-14,0,-6);g.bezierCurveTo(6,-14,14,-4,0,5);g.closePath();g.fill();g.stroke();g.restore()}else if(bf.k==='shield'){g.beginPath();g.moveTo(bf.x,bf.y-11);g.lineTo(bf.x+9,bf.y-6);g.lineTo(bf.x+7,bf.y+6);g.lineTo(bf.x,bf.y+12);g.lineTo(bf.x-7,bf.y+6);g.lineTo(bf.x-9,bf.y-6);g.closePath();g.fill();g.stroke()}else{g.fillRect(bf.x-3,bf.y-10,6,20);g.fillRect(bf.x-10,bf.y-3,20,6)}}
+    // orb pierces the fog
+    if(orb&&state==='play'){
+      const a=mv,pul=1+Math.sin(t*0.15)*0.15;
+      const gr=g.createRadialGradient(orb.x,orb.y,0,orb.x,orb.y,34*pul);
+      gr.addColorStop(0,`rgba(90,255,200,${a})`);gr.addColorStop(1,'rgba(90,255,200,0)');
+      g.fillStyle=gr;g.beginPath();g.arc(orb.x,orb.y,34*pul,0,6.28);g.fill();
+      g.save();g.translate(orb.x,orb.y);g.rotate(t*0.03);g.fillStyle=`rgba(170,255,230,${a})`;g.strokeStyle=`rgba(255,255,255,${a})`;g.lineWidth=1.5;g.beginPath();g.moveTo(0,-12);g.lineTo(7,0);g.lineTo(0,12);g.lineTo(-7,0);g.closePath();g.fill();g.stroke();g.beginPath();g.moveTo(0,-12);g.lineTo(0,12);g.moveTo(-7,0);g.lineTo(7,0);g.stroke();g.restore();
+    }
+  }
+  // player
+  if(state==='play'){
+    const rr=9+still*5;
+    g.strokeStyle=`rgba(255,255,255,${0.25+still*0.4})`;g.lineWidth=1.5;
+    g.beginPath();g.arc(px,py,rr+Math.sin(t*0.12)*2*still,0,6.28);g.stroke();
+    if(inv>0&&Math.floor(t/4)%2)g.globalAlpha=0.35;const fl=1+Math.sin(t*0.4)*0.15,pg=g.createRadialGradient(px,py,0,px,py,22*fl);pg.addColorStop(0,'rgba(255,240,200,0.9)');pg.addColorStop(1,'rgba(255,190,90,0)');g.fillStyle=pg;g.beginPath();g.arc(px,py,22*fl,0,6.28);g.fill();g.fillStyle='#fff8e0';g.beginPath();g.arc(px,py,4,0,6.28);g.fill();if(sh>0){const sa=sh<120?(Math.floor(t/6)%2?0.2:0.7):0.7;g.strokeStyle=`rgba(130,200,255,${sa})`;g.lineWidth=2.5;g.beginPath();g.arc(px,py,20,0,6.28);g.stroke();g.fillStyle=`rgba(130,200,255,${sa*0.15})`;g.fill()}if(lamp>0){g.strokeStyle='rgba(255,220,130,0.95)';g.lineWidth=3;g.beginPath();g.arc(px,py,28,-1.57,-1.57+6.28*Math.min(1,lamp/75));g.stroke()}g.globalAlpha=1;
+  }
+  // HUD
+  g.textAlign='center';
+  if(state==='play'){
+    g.fillStyle='rgba(255,255,255,0.8)';g.font='600 22px system-ui';g.fillText('Ур. '+(lv+1)+' · '+UN[LV[lv].k]+' '+(score|0)+' / '+GOAL+('sl'.includes(LV[lv].k)?'':' с'),W/2,env_top()+34);g.fillStyle='rgba(255,255,255,0.15)';g.fillRect(W/2-60,env_top()+64,120,3);g.fillStyle='rgba(255,220,130,0.9)';g.fillRect(W/2-60,env_top()+64,120*Math.min(1,score/GOAL),3);capT-=dt;chT-=dt;if(chT>0){const ca=Math.min(1,chT/50,(170-chT)/30);g.fillStyle=`rgba(255,235,190,${ca})`;g.font='13px system-ui';g.fillText('ГЛАВА '+(lv+1),W/2,H/2-30);g.font='700 30px system-ui';g.fillText(LV[lv].n,W/2,H/2+8)}if(capT>0){g.font='italic 16px system-ui';g.fillStyle=`rgba(255,235,190,${Math.min(1,capT/60)})`;wrap(cap,W/2,H-50,Math.min(W-40,560),20)}for(let i=0;i<mhp;i++)heart(22+i*28,env_top()+26,i<hp);if(sh>0){g.fillStyle='rgba(110,190,255,0.8)';g.fillRect(8,env_top()+44,Math.min(1,sh/480)*mhp*28,3)}if(flash>0){g.fillStyle=`rgba(255,40,60,${flash*0.25})`;g.fillRect(0,0,W,H);flash-=dt*0.03}
+    g.font='12px system-ui';g.fillStyle='rgba(255,255,255,0.35)';
+    g.fillText(mv>0.02?'туман взбит, осколок звенит… '+Math.round(mv*100)+'%':fg<0.98?'туман оседает… '+Math.round((1-fg)*100)+'%':'двигайся — осколки звенят · замри — туман оседает',W/2,env_top()+54);
+  }
+  if(state==='intro'){g.fillStyle='rgba(4,5,10,0.82)';g.fillRect(0,0,W,H);g.textAlign='center';g.fillStyle='rgba(255,235,190,0.95)';g.font='italic 19px system-ui';wrap(IN[ip],W/2,H/2-30,Math.min(W-60,520),28);g.font='13px system-ui';g.fillStyle='rgba(255,255,255,'+(0.4+0.3*Math.sin(t*0.08))+')';g.fillText((ip+1)+' / '+IN.length+' · нажми, чтобы продолжить',W/2,H-60)}
+  if(state==='menu'||state==='over'||state==='win'||state==='lvl'){
+    if(state==='win'){const gl=g.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.7);gl.addColorStop(0,'rgba(255,230,150,0.35)');gl.addColorStop(1,'rgba(255,230,150,0)');g.fillStyle=gl;g.fillRect(0,0,W,H);g.save();g.translate(W/2,H/2);g.rotate(t*0.02);const bm=g.createLinearGradient(0,0,Math.max(W,H),0);bm.addColorStop(0,'rgba(255,240,180,0.35)');bm.addColorStop(1,'rgba(255,240,180,0)');g.fillStyle=bm;g.beginPath();g.moveTo(0,0);g.lineTo(Math.max(W,H),-90);g.lineTo(Math.max(W,H),90);g.closePath();g.fill();g.restore()}else{g.fillStyle='rgba(7,8,13,0.55)';g.fillRect(0,0,W,H)}
+    g.fillStyle='#fff';g.font='700 40px system-ui';
+    g.fillText(state==='menu'?'СЛЕПОЙ ПУЛЬС':state==='win'?'МАЯК ЗАЖЖЁН':state==='lvl'?'УРОВЕНЬ ПРОЙДЕН':'ТЫ ВРЕЗАЛСЯ',W/2,H/2-90);
+    g.font='16px system-ui';g.fillStyle='rgba(255,255,255,0.75)';
+    if(state==='menu'){
+      g.fillStyle='rgba(90,255,200,0.95)';g.fillText('Движение взбивает туман: Тени тонут, осколки звенят.',W/2,H/2-14);g.fillStyle='rgba(255,235,190,0.85)';g.font='italic 15px system-ui';g.fillText('15 уровней, разные цели: осколки, огни, тишина, рассвет.',W/2,H/2-50);g.font='16px system-ui';
+      g.fillStyle='rgba(255,110,125,0.95)';g.fillText('Замри на 2–3 секунды — туман осядет, Тени проступят.',W/2,H/2+12);
+      g.fillStyle='rgba(255,255,255,0.7)';g.fillText('У тебя 3 сердца. Ищи щит, сердце и исцеление.',W/2,H/2+38);
+    }else{
+      g.font='600 18px system-ui';g.fillText(state==='win'?RK()+' · падений: '+dc+' · время '+fmt(tm):'Ур. '+(lv+1)+'/'+LV.length+' · '+LV[lv].n+' · рекорд: ур. '+best,W/2,H/2-8);g.font='italic 16px system-ui';g.fillStyle='rgba(255,235,190,0.85)';wrap(cap,W/2,H/2+34,Math.min(W-40,520),22);
+    }
+    g.font='600 16px system-ui';g.fillStyle='rgba(255,255,255,'+(0.5+0.4*Math.sin(t*0.08))+')';
+    g.fillText('Нажми, чтобы '+(state==='menu'?'начать':state==='lvl'?'продолжить':state==='win'?'начать заново':'попробовать снова'),W/2,H/2+(state==='win'?124:84));
+  }
+  requestAnimationFrame(step);
+}
+function env_top(){return 8}
+requestAnimationFrame(step);
+</script>
+</body>
+</html>
