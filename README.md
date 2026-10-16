@@ -137,6 +137,7 @@ A playable browser-based game featuring its core movement mechanics, enemy behav
 
 **Yevhenii Yelisieiev / YuJenix**
 - GitHub: [@mpmotorobot](https://github.com/mpmotorobot)
-- Telegram / Portfolio: [ссылка]((https://t.me/YuJenix)](https://mpmotorobot.github.io))
+* **Telegram:** [@YuJenix](https://t.me/YuJenix)
+* **Портфолио:** [mpmotorobot.github.io](https://mpmotorobot.github.io)
 
 © 2026 Blind Pulse. All rights reserved.
